@@ -1,10 +1,17 @@
 import GameLoop from "./game/GameLoop.js";
 import { makeStore } from "./game/store.js";
 import { startingHandler, startGame } from "./game/starting.js";
-import { startedHandler, addUnit, startBattle } from "./game/started.js";
+import {
+  startedHandler,
+  addUnit,
+  startBattle,
+  selectUnit,
+  updateUnitCommand,
+} from "./game/started.js";
 import TitleScreen from "./game/TitleScreen.js";
 import Board from "./game/Board.js";
 import PlacingUnitsOverlay from "./game/PlacingUnitsOverlay.js";
+import SelectedUnit from "./game/SelectedUnit.js";
 
 const store = makeStore(
   {
@@ -12,6 +19,7 @@ const store = makeStore(
     startedState: "PLACING_UNITS",
     maxUnits: 30,
     units: [],
+    selectedUnitID: null,
     level: {
       cellSize: 16,
       rows: 41,
@@ -19,7 +27,7 @@ const store = makeStore(
     },
     teams: [
       {
-        teamID: "player",
+        teamID: "PLAYER",
         color: "#3e63dd",
       },
       {
@@ -55,6 +63,8 @@ const gameLoop = new GameLoop((delta, frame) => {
   }
 });
 
+let board;
+
 const render = (state) => {
   if (state.gameState === "STARTING") {
     TitleScreen({
@@ -78,12 +88,28 @@ const render = (state) => {
       PlacingUnitsOverlay.remove();
     }
 
+    if (state.selectedUnitID) {
+      const unit = state.units.find((u) => u.unitID === state.selectedUnitID);
+      SelectedUnit({
+        unit,
+        units: state.units,
+        onCommand: (command) => {
+          store.dispatch(updateUnitCommand(command));
+        },
+      });
+    } else {
+      SelectedUnit.remove();
+    }
+
     Board({
-      level: state.level,
-      units: state.units,
-      teams: state.teams,
+      state,
       onClick: (row, col) => {
-        store.dispatch(addUnit("player", [row, col], "HOLD"));
+        if (state.startedState === "BATTLING") {
+          store.dispatch(selectUnit(col, row));
+          return;
+        } else {
+          store.dispatch(addUnit("PLAYER", [row, col], "HOLD"));
+        }
       },
     });
     return;

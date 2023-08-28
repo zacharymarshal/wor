@@ -1,3 +1,28 @@
+export const withinRange = (selectedUnit, unit) => {
+  if (selectedUnit.teamID !== unit.teamID || unit.unitState === "DEAD") {
+    return false;
+  }
+
+  return (
+    (selectedUnit.position[0] === unit.position[0] &&
+      selectedUnit.position[1] === unit.position[1] + 1) ||
+    (selectedUnit.position[0] === unit.position[0] &&
+      selectedUnit.position[1] === unit.position[1] - 1) ||
+    (selectedUnit.position[1] === unit.position[1] &&
+      selectedUnit.position[0] === unit.position[0] + 1) ||
+    (selectedUnit.position[1] === unit.position[1] &&
+      selectedUnit.position[0] === unit.position[0] - 1) ||
+    (selectedUnit.position[0] === unit.position[0] + 1 &&
+      selectedUnit.position[1] === unit.position[1] + 1) ||
+    (selectedUnit.position[0] === unit.position[0] + 1 &&
+      selectedUnit.position[1] === unit.position[1] - 1) ||
+    (selectedUnit.position[0] === unit.position[0] - 1 &&
+      selectedUnit.position[1] === unit.position[1] + 1) ||
+    (selectedUnit.position[0] === unit.position[0] - 1 &&
+      selectedUnit.position[1] === unit.position[1] - 1)
+  );
+};
+
 function direction(x, y, x1, y1) {
   if (x === x1) {
     if (y > y1) {
@@ -99,23 +124,23 @@ function target(enemiesWithinRange, unit) {
   };
 }
 
-function move({ units, level }, posLocks, unit) {
-  const getNextPosition = (direction, row, col) => {
-    switch (direction) {
-      case "UP":
-        return [row - 1, col];
-      case "DOWN":
-        return [row + 1, col];
-      case "LEFT":
-        return [row, col - 1];
-      case "RIGHT":
-        return [row, col + 1];
-    }
-  };
+const getNextPosition = ({ direction, col, row }) => {
+  switch (direction) {
+    case "UP":
+      return { row: row - 1, col };
+    case "DOWN":
+      return { row: row + 1, col };
+    case "LEFT":
+      return { row, col: col - 1 };
+    case "RIGHT":
+      return { row, col: col + 1 };
+  }
+};
 
+function move({ level }, posLocks, unit) {
   const [row, col] = unit.position;
   const direction = unit.command.split("_")[1];
-  const nextPosition = getNextPosition(direction, row, col);
+  const nextPosition = getNextPosition({ direction, row, col });
   if (posLocks.has(nextPosition.join(","))) {
     // don't move
     return {
@@ -147,25 +172,16 @@ function move({ units, level }, posLocks, unit) {
 }
 
 function tick(state) {
-  const { units } = state;
-  let posLocks = new Map();
-
-  units.forEach((unit) => {
-    if (unit.unitState === "IDLE" || unit.unitState.startsWith("ATTACKING")) {
-      posLocks.set(unit.position.join(","), true);
-    }
-  });
-
-  return units.map((unit) => {
+  const nunits = state.units.map((unit) => {
     if (unit.unitState === "DEAD") {
       return unit;
     }
 
     if (unit.unitState.startsWith("ATTACKING")) {
-      return battle(units, unit);
+      return battle(state.units, unit);
     }
 
-    const enemiesWithinRange = units.filter((u) => {
+    const enemiesWithinRange = state.units.filter((u) => {
       if (u.teamID === unit.teamID || u.unitState === "DEAD") {
         return false;
       }
@@ -193,8 +209,79 @@ function tick(state) {
       };
     }
 
-    return move(state, posLocks, unit);
+    return {
+      ...unit,
+      unitState: `MOVING_${unit.command.split("_")[1]}`,
+    };
   });
+
+  const predictedPositions = [];
+  nunits.forEach((unit) => {
+    if (!unit.unitState.startsWith("MOVING")) {
+      return;
+    }
+    const [row, col] = unit.position;
+    const direction = unit.unitState.split("_")[1];
+    const nextPosition = getNextPosition({ direction, col, row });
+    console.log({ unitID: unit.unitID, nextPosition });
+    predictedPositions.push({
+      unitID: unit.unitID,
+      nextPosition,
+    });
+  });
+
+  predictedPositions.forEach((prediction) => {
+    let collidesWith = null;
+
+    predictedPositions.forEach((otherPrediction) => {
+      if (prediction.unitID === otherPrediction.unitID) {
+        return;
+      }
+
+      if (
+        prediction.nextPosition.row === otherPrediction.nextPosition.row &&
+        prediction.nextPosition.col === otherPrediction.nextPosition.col
+      ) {
+        collidesWith = otherPrediction;
+      }
+    });
+
+    if (collidesWith && prediction.unitID < collidesWith.unitID) {
+      console.log("collides with", collidesWith);
+      return;
+    } else {
+      collidesWith = null;
+      nunits.forEach((unit) => {
+        if (unit.unitID === prediction.unitID || unit.unitState === "DEAD") {
+          return;
+        }
+
+        if (
+          prediction.nextPosition.row === unit.position[0] &&
+          prediction.nextPosition.col === unit.position[1]
+        ) {
+          collidesWith = unit;
+        }
+      });
+
+      console.log("collides with--", collidesWith);
+      if (!collidesWith) {
+        nunits.splice(
+          nunits.findIndex((u) => u.unitID === prediction.unitID),
+          1,
+          {
+            ...nunits.find((u) => u.unitID === prediction.unitID),
+            position: [
+              prediction.nextPosition.row,
+              prediction.nextPosition.col,
+            ],
+          }
+        );
+      }
+    }
+  });
+
+  return nunits;
 }
 
 function canPlaceUnit(state, position) {
@@ -236,12 +323,60 @@ export const addUnit = (teamID, position, command) => ({
   },
 });
 
+export const selectUnit = (col, row) => ({
+  type: "SELECT_UNIT",
+  payload: {
+    col,
+    row,
+  },
+});
+
 export const startBattle = () => ({
   type: "START_BATTLE",
 });
 
+// TODO: Rename this, it is technically updating all of the selected units commands
+export const updateUnitCommand = (command) => ({
+  type: "UPDATE_UNIT_COMMAND",
+  payload: {
+    command,
+  },
+});
+
 export const startedHandler = (state, action) => {
-  if (action.type === "START_BATTLE") {
+  if (action.type === "UPDATE_UNIT_COMMAND") {
+    const { command } = action.payload;
+
+    const selectedUnit = state.units.find(
+      (u) => u.unitID === state.selectedUnitID
+    );
+
+    return {
+      ...state,
+      units: state.units.map((u) => {
+        if (state.selectedUnitID === u.unitID || withinRange(selectedUnit, u)) {
+          return {
+            ...u,
+            command,
+          };
+        }
+
+        return u;
+      }),
+    };
+  } else if (action.type === "SELECT_UNIT") {
+    const { col, row } = action.payload;
+
+    const selectedUnit = state.units.find(
+      (u) =>
+        u.position[0] === row && u.position[1] === col && u.teamID === "PLAYER"
+    );
+
+    return {
+      ...state,
+      selectedUnitID: selectedUnit?.unitID || null,
+    };
+  } else if (action.type === "START_BATTLE") {
     // add units based on state.maxUnits to the CPU team in the top half of the board
     // at random but grid aligned positions
     const cpuUnits = [];
@@ -251,18 +386,18 @@ export const startedHandler = (state, action) => {
         Math.floor((Math.random() * state.level.rows) / 2),
         Math.floor(Math.random() * state.level.cols),
       ];
-      cpuUnits.push({
-        teamID: "CPU",
-        unitID,
-        position,
-        command: "ATTACK_DOWN",
-        unitState: "IDLE",
-        hp: 100,
-        dmg: 10,
-        enemyTarget: null,
-        lastBattle: null,
-        zIndex: 0,
-      });
+      // cpuUnits.push({
+      //   teamID: "CPU",
+      //   unitID,
+      //   position,
+      //   command: "ATTACK_DOWN",
+      //   unitState: "IDLE",
+      //   hp: 100,
+      //   dmg: 10,
+      //   enemyTarget: null,
+      //   lastBattle: null,
+      //   zIndex: 10,
+      // });
     }
 
     return {
@@ -301,7 +436,7 @@ export const startedHandler = (state, action) => {
       unitState: "IDLE",
       enemyTarget: null,
       lastBattle: null,
-      zIndex: 0,
+      zIndex: 10,
     };
 
     const units = [...state.units, unit];

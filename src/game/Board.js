@@ -1,16 +1,22 @@
+import { withinRange } from "./started.js";
+
 let isInitialized = false;
+let onClickFn = null;
 
 function findTeam(teams, teamID) {
   const team = teams.find((t) => t.teamID === teamID);
   return team;
 }
 
-export default function Board({
-  level: { cellSize, rows, cols },
-  teams,
-  units,
-  onClick,
-}) {
+export default function Board({ state, onClick }) {
+  const {
+    level: { cellSize, rows, cols },
+    teams,
+    units,
+    selectedUnitID,
+  } = state;
+
+  onClickFn = onClick;
   if (!isInitialized) {
     const canvasWidth = cellSize * cols;
     const canvasHeight = cellSize * rows;
@@ -30,7 +36,7 @@ export default function Board({
       const y = e.offsetY;
       const row = Math.floor(y / cellSize);
       const col = Math.floor(x / cellSize);
-      onClick(row, col);
+      onClickFn(row, col);
     });
     isInitialized = true;
   }
@@ -52,6 +58,8 @@ export default function Board({
 
   units.sort((a, b) => a.zIndex - b.zIndex);
 
+  const selectedUnit = units.find((u) => u.unitID === selectedUnitID);
+
   units.forEach((u) => {
     const [row, col] = u.position;
     if (u.unitState === "DEAD") {
@@ -60,9 +68,17 @@ export default function Board({
       ctx.fillStyle = findTeam(teams, u.teamID).color;
     }
     ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
+
+    if (
+      selectedUnitID &&
+      (selectedUnitID === u.unitID || withinRange(selectedUnit, u))
+    ) {
+      ctx.strokeStyle = "#fbe32d";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+    }
   });
 
-  // sort by zIndex
   units.forEach((u) => {
     const [row, col] = u.position;
     // draw a 2px health bar above the unit with a 1px black border and green fill
