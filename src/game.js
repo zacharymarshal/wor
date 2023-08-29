@@ -24,9 +24,6 @@ const store = makeStore(
     gameState: "STARTING",
     startedState: "PLACING_UNITS",
     maxUnits: 30,
-    unitGrid: Array.from({ length: level.rows }, () =>
-      Array.from({ length: level.cols }, () => null)
-    ),
     units: [],
     selectedUnitID: null,
     level,

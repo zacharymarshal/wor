@@ -155,13 +155,15 @@ export const enemiesWithinRange = ({ units, unit }) => {
   });
 };
 
-export function tick(state) {
-  const newGrid = Array.from({ length: state.level.rows }, () =>
-    Array.from({ length: state.level.cols }, () => null)
-  );
-  const predictedPositions = [];
+function positionKey(position) {
+  return `${position.row},${position.col}`;
+}
 
+export function tick(state) {
+  const predictedPositions = [];
   const newUnits = [...state.units];
+  const placements = new Map();
+
   newUnits.forEach((unit) => {
     let nextPosition = null;
     const willMove = () => {
@@ -185,93 +187,80 @@ export function tick(state) {
       return false;
     };
 
-    if (unit.unitState === "DEAD") {
-      // do nothing
-    } else if (willMove()) {
-      predictedPositions.push({
+    if (unit.unitState !== "DEAD") {
+      if (willMove()) {
+        predictedPositions.push({
+          unitID: unit.unitID,
+          nextPosition,
+          prevPosition: unit.position,
+        });
+      } else {
+        // place static units
+        predictedPositions.push({
+          unitID: unit.unitID,
+          nextPosition: unit.position,
+          prevPosition: unit.position,
+        });
+      }
+      placements.set(positionKey(unit.position), unit.unitID);
+    }
+  });
+
+  const buildTrees = () => {
+    const nodes = newUnits
+      .filter((u) => u.unitState !== "DEAD")
+      .map((unit) => ({
         unitID: unit.unitID,
-        nextPosition,
-        prevPosition: unit.position,
-      });
-    } else {
-      // place static units
-      newGrid[unit.position.row][unit.position.col] = unit.unitID;
-    }
-  });
-
-  // move units
-  predictedPositions.forEach(({ unitID, nextPosition, prevPosition }) => {
-    const canMove = (nextPosition, checkedUnitIDs = []) => {
-      const targetCellUnitID = newGrid[nextPosition.row][nextPosition.col];
-      // cell is occupied
-      if (targetCellUnitID !== null) {
-        // prevent infinite loop of death
-        if (checkedUnitIDs.includes(targetCellUnitID)) {
-          return false;
-        }
-        const targetUnit = newUnits.find((u) => u.unitID === targetCellUnitID);
-        if (targetUnit.command.startsWith("ATTACK")) {
-          const targetUnitPredictedNextPosition = predictedPositions.find(
-            (p) => p.unitID === targetCellUnitID
-          )?.nextPosition;
-
-          if (!targetUnitPredictedNextPosition) {
-            return false;
-          }
-
-          // they trying to swap
-          if (
-            targetUnitPredictedNextPosition.row === prevPosition.row &&
-            targetUnitPredictedNextPosition.col === prevPosition.col
-          ) {
-            return false;
-          }
-
-          checkedUnitIDs.push(targetCellUnitID);
-          return canMove(
-            predictedPositions.find((p) => p.unitID === targetCellUnitID)
-              .nextPosition,
-            checkedUnitIDs
-          );
-        }
-
-        return false;
-      }
-
-      const isSwapping = predictedPositions.some(
-        (p) =>
-          p.unitID !== unitID &&
-          p.nextPosition.row === prevPosition.row &&
-          p.nextPosition.col === prevPosition.col &&
-          p.prevPosition.row === nextPosition.row &&
-          p.prevPosition.col === nextPosition.col
+        children: [],
+      }));
+    const rootNodes = [];
+    nodes.forEach((node) => {
+      const predictedPosition = predictedPositions.find(
+        (p) => p.unitID === node.unitID
       );
-
-      if (isSwapping) {
-        return false;
+      const targetUnitID = predictedPositions.find(
+        (p) =>
+          p.unitID !== node.unitID &&
+          p.prevPosition.row === predictedPosition.nextPosition.row &&
+          p.prevPosition.col === predictedPosition.nextPosition.col
+      );
+      if (targetUnitID) {
+        const targetNode = nodes.find((n) => n.unitID === targetUnitID.unitID);
+        targetNode.children.push(node);
+      } else {
+        rootNodes.push(node);
       }
+    });
 
-      return true;
-    };
-    if (canMove(nextPosition)) {
-      // move unit
-      newGrid[nextPosition.row][nextPosition.col] = unitID;
+    return rootNodes;
+  };
 
-      // update unit position
-      const unitIdx = newUnits.findIndex((u) => u.unitID === unitID);
-      newUnits.splice(unitIdx, 1, {
-        ...newUnits[unitIdx],
-        position: nextPosition,
-      });
-    } else {
-      // keep unit in place
-      newGrid[prevPosition.row][prevPosition.col] = unitID;
-    }
-  });
+  const trees = buildTrees({ state, predictedPositions });
+
+  const processTrees = (trees) => {
+    trees.forEach((tree) => {
+      const { nextPosition, prevPosition } = predictedPositions.find(
+        (p) => p.unitID === tree.unitID
+      );
+      const cellIsEmpty = !placements.has(positionKey(nextPosition));
+      if (cellIsEmpty) {
+        placements.set(positionKey(nextPosition), tree.unitID);
+        placements.delete(positionKey(prevPosition));
+
+        const unitIdx = newUnits.findIndex((u) => u.unitID === tree.unitID);
+        newUnits.splice(unitIdx, 1, {
+          ...newUnits[unitIdx],
+          position: nextPosition,
+        });
+        processTrees(tree.children);
+      }
+    });
+  };
+
+  processTrees(trees);
 
   return {
     ...state,
-    unitGrid: newGrid,
     units: newUnits,
   };
 }
@@ -392,7 +381,6 @@ function tickOld(state) {
 function canPlaceUnit(state, position) {
   const {
     units,
-    unitGrid,
     level: { rows },
     maxUnits,
   } = state;
@@ -408,7 +396,11 @@ function canPlaceUnit(state, position) {
     return false;
   }
 
-  if (unitGrid[position.row][position.col] !== null) {
+  const isCellEmpty =
+    units.find(
+      (u) => u.position.row === position.row && u.position.col === position.col
+    ) === undefined;
+  if (isCellEmpty === false) {
     console.debug("cannot place unit, unit already at position");
     return false;
   }
@@ -540,14 +532,9 @@ export const startedHandler = (state, action) => {
       zIndex: 10,
     };
 
-    // update the grid to contain the unitID for the position
-    const unitGrid = [...state.unitGrid];
-    unitGrid[position.row][position.col] = unitID;
-
     return {
       ...state,
       units: [...state.units, unit],
-      unitGrid,
     };
   }
 
