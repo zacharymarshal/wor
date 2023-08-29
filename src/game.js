@@ -13,18 +13,23 @@ import Board from "./game/Board.js";
 import PlacingUnitsOverlay from "./game/PlacingUnitsOverlay.js";
 import SelectedUnit from "./game/SelectedUnit.js";
 
+const level = {
+  cellSize: 16,
+  rows: 41,
+  cols: 41,
+};
+
 const store = makeStore(
   {
     gameState: "STARTING",
     startedState: "PLACING_UNITS",
     maxUnits: 30,
+    unitGrid: Array.from({ length: level.rows }, () =>
+      Array.from({ length: level.cols }, () => null)
+    ),
     units: [],
     selectedUnitID: null,
-    level: {
-      cellSize: 16,
-      rows: 41,
-      cols: 41,
-    },
+    level,
     teams: [
       {
         teamID: "PLAYER",
@@ -49,21 +54,33 @@ const store = makeStore(
 let frameCounter = 1;
 const gameLoop = new GameLoop((delta, frame) => {
   if (frame === 1) {
-    store.dispatch({ type: "TICK_START" });
+    // store.dispatch({ type: "TICK_START" });
   }
 
-  store.dispatch({ type: "TICK_PROGRESS", payload: { frame: frameCounter } });
+  // store.dispatch({ type: "TICK_PROGRESS", payload: { frame: frameCounter } });
 
   frameCounter += 1;
 
   if (frame % 60 === 0) {
-    store.dispatch({ type: "TICK_END" });
+    // console.log("TICK");
+    // store.dispatch({ type: "TICK_END" });
     frameCounter = 0;
-    store.dispatch({ type: "TICK_START" });
+    // store.dispatch({ type: "TICK_START" });
   }
 });
 
-let board;
+let gameInterval;
+const start = () => {
+  store.dispatch({ type: "TICK_START" });
+  gameInterval = setInterval(() => {
+    store.dispatch({ type: "TICK_END" });
+    frameCounter = 0;
+    store.dispatch({ type: "TICK_START" });
+  }, 1000);
+};
+const stop = () => {
+  clearInterval(gameInterval);
+};
 
 const render = (state) => {
   if (state.gameState === "STARTING") {
@@ -71,6 +88,7 @@ const render = (state) => {
       startGame: () => {
         store.dispatch(startGame());
         gameLoop.start();
+        start();
       },
     });
   } else {
@@ -103,12 +121,18 @@ const render = (state) => {
 
     Board({
       state,
-      onClick: (row, col) => {
+      onClick: ({ row, col }) => {
         if (state.startedState === "BATTLING") {
-          store.dispatch(selectUnit(col, row));
+          store.dispatch(selectUnit({ row, col }));
           return;
         } else {
-          store.dispatch(addUnit("PLAYER", [row, col], "HOLD"));
+          store.dispatch(
+            addUnit({
+              teamID: "PLAYER",
+              command: "HOLD",
+              position: { row, col },
+            })
+          );
         }
       },
     });

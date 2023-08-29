@@ -36,7 +36,7 @@ export default function Board({ state, onClick }) {
       const y = e.offsetY;
       const row = Math.floor(y / cellSize);
       const col = Math.floor(x / cellSize);
-      onClickFn(row, col);
+      onClickFn({ row, col });
     });
     isInitialized = true;
   }
@@ -61,7 +61,7 @@ export default function Board({ state, onClick }) {
   const selectedUnit = units.find((u) => u.unitID === selectedUnitID);
 
   units.forEach((u) => {
-    const [row, col] = u.position;
+    const { row, col } = u.position;
     if (u.unitState === "DEAD") {
       ctx.fillStyle = "#8d8d8d";
     } else {
@@ -80,7 +80,7 @@ export default function Board({ state, onClick }) {
   });
 
   units.forEach((u) => {
-    const [row, col] = u.position;
+    const { row, col } = u.position;
     // draw a 2px health bar above the unit with a 1px black border and green fill
     ctx.strokeStyle = "black";
     ctx.strokeRect(col * cellSize + 2, row * cellSize + 2, cellSize - 5, 2);

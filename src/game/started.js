@@ -4,22 +4,22 @@ export const withinRange = (selectedUnit, unit) => {
   }
 
   return (
-    (selectedUnit.position[0] === unit.position[0] &&
-      selectedUnit.position[1] === unit.position[1] + 1) ||
-    (selectedUnit.position[0] === unit.position[0] &&
-      selectedUnit.position[1] === unit.position[1] - 1) ||
-    (selectedUnit.position[1] === unit.position[1] &&
-      selectedUnit.position[0] === unit.position[0] + 1) ||
-    (selectedUnit.position[1] === unit.position[1] &&
-      selectedUnit.position[0] === unit.position[0] - 1) ||
-    (selectedUnit.position[0] === unit.position[0] + 1 &&
-      selectedUnit.position[1] === unit.position[1] + 1) ||
-    (selectedUnit.position[0] === unit.position[0] + 1 &&
-      selectedUnit.position[1] === unit.position[1] - 1) ||
-    (selectedUnit.position[0] === unit.position[0] - 1 &&
-      selectedUnit.position[1] === unit.position[1] + 1) ||
-    (selectedUnit.position[0] === unit.position[0] - 1 &&
-      selectedUnit.position[1] === unit.position[1] - 1)
+    (selectedUnit.position.row === unit.position.row &&
+      selectedUnit.position.col === unit.position.col + 1) ||
+    (selectedUnit.position.row === unit.position.row &&
+      selectedUnit.position.col === unit.position.col - 1) ||
+    (selectedUnit.position.col === unit.position.col &&
+      selectedUnit.position.row === unit.position.row + 1) ||
+    (selectedUnit.position.col === unit.position.col &&
+      selectedUnit.position.row === unit.position.row - 1) ||
+    (selectedUnit.position.row === unit.position.row + 1 &&
+      selectedUnit.position.col === unit.position.col + 1) ||
+    (selectedUnit.position.row === unit.position.row + 1 &&
+      selectedUnit.position.col === unit.position.col - 1) ||
+    (selectedUnit.position.row === unit.position.row - 1 &&
+      selectedUnit.position.col === unit.position.col + 1) ||
+    (selectedUnit.position.row === unit.position.row - 1 &&
+      selectedUnit.position.col === unit.position.col - 1)
   );
 };
 
@@ -111,10 +111,10 @@ function target(enemiesWithinRange, unit) {
   const enemy = enemiesWithinRange[0];
 
   const dir = direction(
-    unit.position[0],
-    unit.position[1],
-    enemy.position[0],
-    enemy.position[1]
+    unit.position.row,
+    unit.position.col,
+    enemy.position.row,
+    enemy.position.col
   );
 
   return {
@@ -124,7 +124,7 @@ function target(enemiesWithinRange, unit) {
   };
 }
 
-const getNextPosition = ({ direction, col, row }) => {
+const getNextPosition = ({ direction, position: { col, row } }) => {
   switch (direction) {
     case "UP":
       return { row: row - 1, col };
@@ -137,41 +137,146 @@ const getNextPosition = ({ direction, col, row }) => {
   }
 };
 
-function move({ level }, posLocks, unit) {
-  const [row, col] = unit.position;
-  const direction = unit.command.split("_")[1];
-  const nextPosition = getNextPosition({ direction, row, col });
-  if (posLocks.has(nextPosition.join(","))) {
-    // don't move
-    return {
-      ...unit,
-      unitState: "IDLE",
-    };
-  }
+export const enemiesWithinRange = ({ units, unit }) => {
+  return units.filter((u) => {
+    if (u.teamID === unit.teamID || u.unitState === "DEAD") {
+      return false;
+    }
 
-  // don't move off the map
-  if (
-    nextPosition[0] < 0 ||
-    nextPosition[0] >= level.rows ||
-    nextPosition[1] < 0 ||
-    nextPosition[1] >= level.cols
-  ) {
-    return {
-      ...unit,
-      unitState: "IDLE",
-    };
-  }
+    const { row: unitRow, col: unitCol } = unit.position;
+    const { row, col } = u.position;
 
-  posLocks.set(nextPosition.join(","), true);
+    return (
+      (unitRow === row && unitCol === col + 1) ||
+      (unitRow === row && unitCol === col - 1) ||
+      (unitCol === col && unitRow === row + 1) ||
+      (unitCol === col && unitRow === row - 1)
+    );
+  });
+};
+
+export function tick(state) {
+  const newGrid = Array.from({ length: state.level.rows }, () =>
+    Array.from({ length: state.level.cols }, () => null)
+  );
+  const predictedPositions = [];
+
+  const newUnits = [...state.units];
+  newUnits.forEach((unit) => {
+    let nextPosition = null;
+    const willMove = () => {
+      if (unit.command.startsWith("ATTACK")) {
+        // predict movement
+        const direction = unit.command.split("_")[1];
+        nextPosition = getNextPosition({
+          direction,
+          position: unit.position,
+        });
+        if (
+          nextPosition.row >= 0 &&
+          nextPosition.row < state.level.rows &&
+          nextPosition.col >= 0 &&
+          nextPosition.col < state.level.cols
+        ) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    if (unit.unitState === "DEAD") {
+      // do nothing
+    } else if (willMove()) {
+      predictedPositions.push({
+        unitID: unit.unitID,
+        nextPosition,
+        prevPosition: unit.position,
+      });
+    } else {
+      // place static units
+      newGrid[unit.position.row][unit.position.col] = unit.unitID;
+    }
+  });
+
+  // move units
+  predictedPositions.forEach(({ unitID, nextPosition, prevPosition }) => {
+    const canMove = (nextPosition, checkedUnitIDs = []) => {
+      const targetCellUnitID = newGrid[nextPosition.row][nextPosition.col];
+      // cell is occupied
+      if (targetCellUnitID !== null) {
+        // prevent infinite loop of death
+        if (checkedUnitIDs.includes(targetCellUnitID)) {
+          return false;
+        }
+        const targetUnit = newUnits.find((u) => u.unitID === targetCellUnitID);
+        if (targetUnit.command.startsWith("ATTACK")) {
+          const targetUnitPredictedNextPosition = predictedPositions.find(
+            (p) => p.unitID === targetCellUnitID
+          )?.nextPosition;
+
+          if (!targetUnitPredictedNextPosition) {
+            return false;
+          }
+
+          // they trying to swap
+          if (
+            targetUnitPredictedNextPosition.row === prevPosition.row &&
+            targetUnitPredictedNextPosition.col === prevPosition.col
+          ) {
+            return false;
+          }
+
+          checkedUnitIDs.push(targetCellUnitID);
+          return canMove(
+            predictedPositions.find((p) => p.unitID === targetCellUnitID)
+              .nextPosition,
+            checkedUnitIDs
+          );
+        }
+
+        return false;
+      }
+
+      const isSwapping = predictedPositions.some(
+        (p) =>
+          p.unitID !== unitID &&
+          p.nextPosition.row === prevPosition.row &&
+          p.nextPosition.col === prevPosition.col &&
+          p.prevPosition.row === nextPosition.row &&
+          p.prevPosition.col === nextPosition.col
+      );
+
+      if (isSwapping) {
+        return false;
+      }
+
+      return true;
+    };
+    if (canMove(nextPosition)) {
+      // move unit
+      newGrid[nextPosition.row][nextPosition.col] = unitID;
+
+      // update unit position
+      const unitIdx = newUnits.findIndex((u) => u.unitID === unitID);
+      newUnits.splice(unitIdx, 1, {
+        ...newUnits[unitIdx],
+        position: nextPosition,
+      });
+    } else {
+      // keep unit in place
+      newGrid[prevPosition.row][prevPosition.col] = unitID;
+    }
+  });
 
   return {
-    ...unit,
-    unitState: `MOVING_${direction}`,
-    position: nextPosition,
+    ...state,
+    unitGrid: newGrid,
+    units: newUnits,
   };
 }
 
-function tick(state) {
+function tickOld(state) {
   const nunits = state.units.map((unit) => {
     if (unit.unitState === "DEAD") {
       return unit;
@@ -186,8 +291,8 @@ function tick(state) {
         return false;
       }
 
-      const [unitRow, unitCol] = unit.position;
-      const [row, col] = u.position;
+      const { row: unitRow, col: unitCol } = unit.position;
+      const { row, col } = u.position;
 
       return (
         (unitRow === row && unitCol === col + 1) ||
@@ -220,7 +325,7 @@ function tick(state) {
     if (!unit.unitState.startsWith("MOVING")) {
       return;
     }
-    const [row, col] = unit.position;
+    const { row, col } = unit.position;
     const direction = unit.unitState.split("_")[1];
     const nextPosition = getNextPosition({ direction, col, row });
     console.log({ unitID: unit.unitID, nextPosition });
@@ -257,8 +362,8 @@ function tick(state) {
         }
 
         if (
-          prediction.nextPosition.row === unit.position[0] &&
-          prediction.nextPosition.col === unit.position[1]
+          prediction.nextPosition.row === unit.position.row &&
+          prediction.nextPosition.col === unit.position.col
         ) {
           collidesWith = unit;
         }
@@ -287,12 +392,13 @@ function tick(state) {
 function canPlaceUnit(state, position) {
   const {
     units,
+    unitGrid,
     level: { rows },
     maxUnits,
   } = state;
 
   // only teamID of player can place units, and only on the bottom half of the board
-  if (position[0] < rows / 2) {
+  if (position.row < rows / 2) {
     console.debug("cannot place unit on top half of board");
     return false;
   }
@@ -302,11 +408,7 @@ function canPlaceUnit(state, position) {
     return false;
   }
 
-  const unitAtPosition = units.find(
-    (u) => u.position[0] === position[0] && u.position[1] === position[1]
-  );
-
-  if (unitAtPosition) {
+  if (unitGrid[position.row][position.col] !== null) {
     console.debug("cannot place unit, unit already at position");
     return false;
   }
@@ -314,7 +416,7 @@ function canPlaceUnit(state, position) {
   return true;
 }
 
-export const addUnit = (teamID, position, command) => ({
+export const addUnit = ({ teamID, position, command }) => ({
   type: "ADD_UNIT",
   payload: {
     teamID,
@@ -323,7 +425,7 @@ export const addUnit = (teamID, position, command) => ({
   },
 });
 
-export const selectUnit = (col, row) => ({
+export const selectUnit = ({ col, row }) => ({
   type: "SELECT_UNIT",
   payload: {
     col,
@@ -369,7 +471,9 @@ export const startedHandler = (state, action) => {
 
     const selectedUnit = state.units.find(
       (u) =>
-        u.position[0] === row && u.position[1] === col && u.teamID === "PLAYER"
+        u.position.row === row &&
+        u.position.col === col &&
+        u.teamID === "PLAYER"
     );
 
     return {
@@ -382,10 +486,10 @@ export const startedHandler = (state, action) => {
     const cpuUnits = [];
     for (let i = 0; i < state.maxUnits; i++) {
       const unitID = Math.random().toString(36).substr(2, 9);
-      const position = [
-        Math.floor((Math.random() * state.level.rows) / 2),
-        Math.floor(Math.random() * state.level.cols),
-      ];
+      const position = {
+        row: Math.floor((Math.random() * state.level.rows) / 2),
+        col: Math.floor(Math.random() * state.level.cols),
+      };
       // cpuUnits.push({
       //   teamID: "CPU",
       //   unitID,
@@ -414,10 +518,7 @@ export const startedHandler = (state, action) => {
     return state;
   } else if (action.type === "TICK_END") {
     console.log("tick end");
-    return {
-      ...state,
-      units: tick(state),
-    };
+    return tick(state);
   } else if (action.type === "ADD_UNIT") {
     const { teamID, position, command } = action.payload;
 
@@ -439,11 +540,14 @@ export const startedHandler = (state, action) => {
       zIndex: 10,
     };
 
-    const units = [...state.units, unit];
+    // update the grid to contain the unitID for the position
+    const unitGrid = [...state.unitGrid];
+    unitGrid[position.row][position.col] = unitID;
 
     return {
       ...state,
-      units,
+      units: [...state.units, unit],
+      unitGrid,
     };
   }
 
