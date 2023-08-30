@@ -3,19 +3,13 @@ import { withinRange } from "./started.js";
 let isInitialized = false;
 let onClickFn = null;
 let onUpdateCameraFn = null;
-let onCameraZoomFn = null;
 
 function findTeam(teams, teamID) {
   const team = teams.find((t) => t.teamID === teamID);
   return team;
 }
 
-export default function Board({
-  state,
-  onClick,
-  onUpdateCamera,
-  onCameraZoom,
-}) {
+function Board({ state, onClick, onUpdateCamera }) {
   const {
     level: { cellSize, rows, cols },
     teams,
@@ -25,7 +19,6 @@ export default function Board({
 
   onClickFn = onClick;
   onUpdateCameraFn = onUpdateCamera;
-  onCameraZoomFn = onCameraZoom;
   if (!isInitialized) {
     const canvasWidth = cellSize * cols;
     const canvasHeight = cellSize * rows;
@@ -38,12 +31,6 @@ export default function Board({
 
     const gameEl = document.querySelector("#game");
     gameEl.appendChild(boardEl);
-
-    boardEl.addEventListener("wheel", (e) => {
-      const mouseX = e.offsetX;
-      const mouseY = e.offsetY;
-      onCameraZoomFn({ deltaY: e.deltaY, mouseX, mouseY });
-    });
 
     let isDragging = false;
     let clickStartX = null;
@@ -130,10 +117,12 @@ export default function Board({
   }
 
   const canvas = document.querySelector("#board-canvas");
+  canvas.width = cellSize * cols;
+  canvas.height = cellSize * rows;
 
   // camera stuff
   const camera = state.camera;
-  canvas.style.transform = `translate3d(${camera.offsetX}px, ${camera.offsetY}px, 0) scale(${camera.zoom.level})`;
+  canvas.style.transform = `translate3d(${camera.offsetX}px, ${camera.offsetY}px, 0)`;
   canvas.style.width = `${cellSize * cols}px`;
   canvas.style.height = `${cellSize * rows}px`;
 
@@ -192,3 +181,13 @@ export default function Board({
     );
   });
 }
+
+Board.remove = () => {
+  if (isInitialized) {
+    isInitialized = false;
+    const boardEl = document.querySelector("#board");
+    boardEl.remove();
+  }
+};
+
+export default Board;

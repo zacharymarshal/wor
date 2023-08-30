@@ -44,9 +44,9 @@ function SelectedUnit({ unit, onCommand }) {
   }
 }
 SelectedUnit.remove = function () {
-  isInitialized = false;
-  const selectedUnitEl = document.querySelector("#selected-unit");
-  if (selectedUnitEl) {
+  if (isInitialized) {
+    isInitialized = false;
+    const selectedUnitEl = document.querySelector("#selected-unit");
     selectedUnitEl.remove();
   }
 };

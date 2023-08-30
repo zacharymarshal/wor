@@ -1,5 +1,6 @@
 import GameLoop from "./game/GameLoop.js";
 import { makeStore } from "./game/store.js";
+import { gameOverHandler, restartGame } from "./game/gameOver.js";
 import { startingHandler, startGame } from "./game/starting.js";
 import {
   startedHandler,
@@ -8,73 +9,60 @@ import {
   selectUnit,
   updateUnitCommand,
   updateCamera,
-  cameraZoom,
 } from "./game/started.js";
+import GameOverScreen from "./game/GameOverScreen.js";
 import TitleScreen from "./game/TitleScreen.js";
 import Board from "./game/Board.js";
 import PlacingUnitsOverlay from "./game/PlacingUnitsOverlay.js";
 import SelectedUnit from "./game/SelectedUnit.js";
+import Timer from "./game/Timer.js";
 
 const level = {
-  cellSize: 16,
+  cellSize: 32,
   rows: 30,
   cols: 30,
 };
 const camera = {
-  zoom: {
-    level: 1,
-    factor: 0.25,
-  },
   offsetX: 0,
   offsetY: 0,
 };
+const initialState = {
+  gameState: "STARTING", // STARTING, STARTED, PAUSED, GAME_OVER
+  startedState: "PLACING_UNITS",
+  maxUnits: 30,
+  units: [],
+  selectedUnitID: null,
+  level,
+  teams: [
+    {
+      teamID: "PLAYER",
+      name: "Player",
+      color: "#3e63dd",
+    },
+    {
+      teamID: "CPU",
+      name: "CPU",
+      color: "#e54d2e",
+    },
+  ],
+  camera,
+  startedAt: null,
+  timeLimit: 5 * 60 * 1000, // 5 minutes
+  winningTeamID: null,
+};
 
-const store = makeStore(
-  {
-    gameState: "STARTING",
-    startedState: "PLACING_UNITS",
-    maxUnits: 30,
-    units: [],
-    selectedUnitID: null,
-    level,
-    teams: [
-      {
-        teamID: "PLAYER",
-        color: "#3e63dd",
-      },
-      {
-        teamID: "CPU",
-        color: "#e54d2e",
-      },
-    ],
-    camera,
-  },
-  (state, action, payload) => {
-    const reducers = {
-      STARTING: startingHandler,
-      STARTED: startedHandler,
-    };
+const store = makeStore(initialState, (state, action, payload) => {
+  const reducers = {
+    STARTING: startingHandler,
+    STARTED: startedHandler,
+    GAME_OVER: gameOverHandler,
+  };
 
-    return reducers[state.gameState](state, action, payload) || state;
-  }
-);
+  return reducers[state.gameState](state, action, payload) || state;
+});
 
-let frameCounter = 1;
 const gameLoop = new GameLoop((delta, frame) => {
-  if (frame === 1) {
-    // store.dispatch({ type: "TICK_START" });
-  }
-
-  // store.dispatch({ type: "TICK_PROGRESS", payload: { frame: frameCounter } });
-
-  frameCounter += 1;
-
-  if (frame % 60 === 0) {
-    // console.log("TICK");
-    // store.dispatch({ type: "TICK_END" });
-    frameCounter = 0;
-    // store.dispatch({ type: "TICK_START" });
-  }
+  store.dispatch({ type: "TICK_PROGRESS", payload: { frame } });
 });
 
 let gameInterval;
@@ -91,6 +79,20 @@ const stop = () => {
 };
 
 const render = (state) => {
+  if (state.gameState === "GAME_OVER") {
+    gameLoop.stop();
+    stop();
+
+    GameOverScreen({
+      state,
+      onRestartGame: () => {
+        store.dispatch(restartGame({ initialState }));
+      },
+    });
+  } else {
+    GameOverScreen.remove();
+  }
+
   if (state.gameState === "STARTING") {
     TitleScreen({
       startGame: () => {
@@ -123,9 +125,6 @@ const render = (state) => {
       onUpdateCamera: (camera) => {
         store.dispatch(updateCamera(camera));
       },
-      onCameraZoom: (zoom) => {
-        store.dispatch(cameraZoom(zoom));
-      },
     });
 
     if (state.startedState === "PLACING_UNITS") {
@@ -144,6 +143,10 @@ const render = (state) => {
     }
 
     if (state.startedState === "BATTLING") {
+      Timer({
+        startedAt: state.startedAt,
+        timeLimit: state.timeLimit,
+      });
       SelectedUnit({
         unit: selectedUnit,
         units: state.units,
@@ -152,10 +155,14 @@ const render = (state) => {
         },
       });
     } else {
+      Timer.remove();
       SelectedUnit.remove();
     }
-
-    return;
+  } else {
+    Board.remove();
+    PlacingUnitsOverlay.remove();
+    Timer.remove();
+    SelectedUnit.remove();
   }
 };
 

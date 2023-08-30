@@ -5,7 +5,7 @@
   "source": "src/index.html",
   "browserslist": "Chrome 116",
   "scripts": {
-    "start": "parcel --port 7228 --no-hmr",
+    "start": "parcel serve --port 7228 --no-hmr src/index.html src/tests.html",
     "build": "bin/build.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

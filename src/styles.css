@@ -11,6 +11,8 @@ body {
   font-size: 16px;
   overflow: hidden;
   margin: 0;
+  font-family: Impact, sans-serif;
+  text-transform: uppercase;
 }
 
 #game {
@@ -25,7 +27,6 @@ body {
   flex-grow: 1;
   background-color: #202020;
   position: relative;
-  padding: var(--camera-control-area-size);
 
   display: flex;
   align-content: center;
@@ -50,6 +51,28 @@ body {
 }
 #placing-units-overlay {
   background: #f9f9f9;
-  min-height: 10rem;
   padding: 1rem;
+}
+#timer {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.5rem;
+}
+#timer-bar {
+  border: 2px solid #fff;
+  background: #f9f9f9;
+  width: 10rem;
+}
+#timer-bar-border {
+  border: 4px solid #000;
+}
+#timer-bar-inner {
+  background: #8d8d8d;
+  height: 0.5rem;
+  width: 100%;
+  transition: width 0.2s linear;
 }

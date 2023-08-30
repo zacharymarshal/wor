@@ -28,9 +28,9 @@ function PlacingUnitsOverlay({ maxUnits, unitsPlaced, onDone }) {
   }
 }
 PlacingUnitsOverlay.remove = function () {
-  isInitialized = false;
-  const overlayEl = document.querySelector("#placing-units-overlay");
-  if (overlayEl) {
+  if (isInitialized) {
+    isInitialized = false;
+    const overlayEl = document.querySelector("#placing-units-overlay");
     overlayEl.remove();
   }
 };

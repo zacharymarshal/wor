@@ -1,4 +1,4 @@
-import { tick } from "./game/started.js";
+import { tick } from "./game/tick.js";
 
 ((module, test) => {
   module("Tick");
@@ -71,43 +71,52 @@ import { tick } from "./game/started.js";
 
   test("units move over dead units", (assert) => {
     const level = { rows: 1, cols: 3 };
-    const unitGrid = Array.from({ length: level.rows }, () =>
-      Array.from({ length: level.cols }, () => null)
-    );
-    const units = [];
-    units.push({
-      unitID: "unit1",
-      command: "ATTACK_RIGHT",
-      position: { row: 0, col: 0 },
-    });
-    unitGrid[0][0] = "unit1";
-    units.push({
-      unitID: "unit2",
-      command: "HOLD",
-      unitState: "DEAD",
-      position: { row: 0, col: 1 },
-    });
-    unitGrid[0][1] = "unit2";
+    const units = [
+      {
+        unitID: "unit1",
+        unitState: "IDLE",
+        command: "ATTACK_RIGHT",
+        position: { row: 0, col: 0 },
+      },
+      {
+        unitID: "unit2",
+        command: "HOLD",
+        unitState: "DEAD",
+        position: { row: 0, col: 1 },
+      },
+    ];
     const state = {
       level,
       units,
-      unitGrid,
     };
+
+    const unit1 = units.findIndex((u) => u.unitID === "unit1");
+    const unit2 = units.findIndex((u) => u.unitID === "unit2");
 
     let newState = tick(state);
 
     assert.deepEqual(
-      newState.units[0].position,
+      newState.units[unit1].position,
       { row: 0, col: 1 },
-      "unit1 moved right over dead unit"
+      "unit1 moved onto dead unit"
+    );
+    assert.deepEqual(
+      newState.units[unit2].position,
+      { row: 0, col: 1 },
+      "unit2 didn't move"
     );
 
     newState = tick(newState);
 
     assert.deepEqual(
-      newState.units[1].position,
-      { row: 0, col: 1 },
+      newState.units[unit1].position,
+      { row: 0, col: 2 },
       "unit1 moved past dead unit"
+    );
+    assert.deepEqual(
+      newState.units[unit2].position,
+      { row: 0, col: 1 },
+      "unit2 didn't move"
     );
   });
 
