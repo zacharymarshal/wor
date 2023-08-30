@@ -437,8 +437,83 @@ export const updateUnitCommand = (command) => ({
   },
 });
 
+export const updateCamera = (camera) => ({
+  type: "UPDATE_CAMERA",
+  payload: {
+    camera,
+  },
+});
+
+export const cameraZoom = ({ deltaY, mouseX, mouseY }) => ({
+  type: "CAMERA_ZOOM",
+  payload: {
+    deltaY,
+    mouseX,
+    mouseY,
+  },
+});
+
 export const startedHandler = (state, action) => {
-  if (action.type === "UPDATE_UNIT_COMMAND") {
+  if (action.type === "CAMERA_ZOOM") {
+    const { deltaY, mouseX, mouseY } = action.payload;
+
+    const delta = Math.sign(deltaY) * -1;
+    const tentativeZoomLevel =
+      state.camera.zoom.level + delta * state.camera.zoom.factor;
+    const zoomLevel = Math.min(Math.max(tentativeZoomLevel, 1), 4);
+
+    const offsetX =
+      mouseX + state.camera.offsetX * (1 - zoomLevel / state.camera.zoom.level);
+    const offsetY =
+      mouseY + state.camera.offsetY * (1 - zoomLevel / state.camera.zoom.level);
+
+    console.log({ mouseX, mouseY, offsetX, offsetY, zoomLevel });
+
+    return {
+      ...state,
+      camera: {
+        ...state.camera,
+        offsetX,
+        offsetY,
+        zoom: {
+          ...state.camera.zoom,
+          level: zoomLevel,
+        },
+      },
+    };
+  } else if (action.type === "UPDATE_CAMERA") {
+    const {
+      camera: { movement, zoomDirection },
+    } = action.payload;
+
+    let offsetX = state.camera.offsetX;
+    let offsetY = state.camera.offsetY;
+
+    let zoomLevel = state.camera.zoom.level;
+    if (zoomDirection === "IN") {
+      zoomLevel = Math.min(4, zoomLevel + 1);
+    } else if (zoomDirection === "OUT") {
+      zoomLevel = Math.max(1, zoomLevel - 1);
+    }
+
+    if (movement) {
+      offsetX = state.camera.offsetX + movement.x;
+      offsetY = state.camera.offsetY + movement.y;
+    }
+
+    return {
+      ...state,
+      camera: {
+        ...state.camera,
+        zoom: {
+          ...state.camera.zoom,
+          level: zoomLevel,
+        },
+        offsetX,
+        offsetY,
+      },
+    };
+  } else if (action.type === "UPDATE_UNIT_COMMAND") {
     const { command } = action.payload;
 
     const selectedUnit = state.units.find(

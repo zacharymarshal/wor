@@ -1,6 +1,6 @@
 let isInitialized = false;
 let onCommandFn = null;
-function SelectedUnit({ unit, units, onCommand }) {
+function SelectedUnit({ unit, onCommand }) {
   onCommandFn = onCommand;
   if (!isInitialized) {
     const selectedUnitEl = document.createElement("div");
@@ -32,14 +32,16 @@ function SelectedUnit({ unit, units, onCommand }) {
     isInitialized = true;
   }
 
-  const selectedUnitInfoHP = document.querySelector("#selected-unit-info-hp");
-  selectedUnitInfoHP.textContent = `HP: ${unit.hp}`;
+  if (unit) {
+    const selectedUnitInfoHP = document.querySelector("#selected-unit-info-hp");
+    selectedUnitInfoHP.textContent = `HP: ${unit.hp}`;
 
-  const commandEl = document.querySelector("#selected-unit-info-command");
-  commandEl.textContent = `Command: ${unit.command}`;
+    const commandEl = document.querySelector("#selected-unit-info-command");
+    commandEl.textContent = `Command: ${unit.command}`;
 
-  const stateEl = document.querySelector("#selected-unit-info-state");
-  stateEl.textContent = `State: ${unit.unitState}`;
+    const stateEl = document.querySelector("#selected-unit-info-state");
+    stateEl.textContent = `State: ${unit.unitState}`;
+  }
 }
 SelectedUnit.remove = function () {
   isInitialized = false;

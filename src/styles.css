@@ -1,3 +1,7 @@
+:root {
+  --camera-control-area-size: 32px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -6,32 +10,46 @@ html,
 body {
   font-size: 16px;
   overflow: hidden;
+  margin: 0;
 }
 
-#placing-units-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 30;
-  width: 100%;
-  background: #f9f9f9;
-  padding: 1rem;
+#game {
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+}
+
+#board {
+  overflow: hidden;
+  flex-grow: 1;
+  background-color: #202020;
+  position: relative;
+  padding: var(--camera-control-area-size);
+
+  display: flex;
+  align-content: center;
+  justify-content: center;
+  flex-direction: column;
+  flex-wrap: wrap;
 }
 
 #board-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 10;
   image-rendering: pixelated;
+  touch-action: none;
+  user-select: none;
+  transform-origin: top left;
+
+  transition: scale 0.2s ease-in-out;
 }
 
 #selected-unit {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 20;
-  width: 100%;
   background: #f9f9f9;
+  min-height: 10rem;
+  padding: 1rem;
+}
+#placing-units-overlay {
+  background: #f9f9f9;
+  min-height: 10rem;
   padding: 1rem;
 }

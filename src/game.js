@@ -7,6 +7,8 @@ import {
   startBattle,
   selectUnit,
   updateUnitCommand,
+  updateCamera,
+  cameraZoom,
 } from "./game/started.js";
 import TitleScreen from "./game/TitleScreen.js";
 import Board from "./game/Board.js";
@@ -15,8 +17,16 @@ import SelectedUnit from "./game/SelectedUnit.js";
 
 const level = {
   cellSize: 16,
-  rows: 41,
-  cols: 41,
+  rows: 30,
+  cols: 30,
+};
+const camera = {
+  zoom: {
+    level: 1,
+    factor: 0.25,
+  },
+  offsetX: 0,
+  offsetY: 0,
 };
 
 const store = makeStore(
@@ -37,6 +47,7 @@ const store = makeStore(
         color: "#e54d2e",
       },
     ],
+    camera,
   },
   (state, action, payload) => {
     const reducers = {
@@ -93,6 +104,30 @@ const render = (state) => {
   }
 
   if (state.gameState === "STARTED") {
+    Board({
+      state,
+      onClick: ({ row, col }) => {
+        if (state.startedState === "BATTLING") {
+          store.dispatch(selectUnit({ row, col }));
+          return;
+        }
+
+        store.dispatch(
+          addUnit({
+            teamID: "PLAYER",
+            command: "HOLD",
+            position: { row, col },
+          })
+        );
+      },
+      onUpdateCamera: (camera) => {
+        store.dispatch(updateCamera(camera));
+      },
+      onCameraZoom: (zoom) => {
+        store.dispatch(cameraZoom(zoom));
+      },
+    });
+
     if (state.startedState === "PLACING_UNITS") {
       PlacingUnitsOverlay({
         maxUnits: state.maxUnits,
@@ -103,10 +138,14 @@ const render = (state) => {
       PlacingUnitsOverlay.remove();
     }
 
+    let selectedUnit;
     if (state.selectedUnitID) {
-      const unit = state.units.find((u) => u.unitID === state.selectedUnitID);
+      selectedUnit = state.units.find((u) => u.unitID === state.selectedUnitID);
+    }
+
+    if (state.startedState === "BATTLING") {
       SelectedUnit({
-        unit,
+        unit: selectedUnit,
         units: state.units,
         onCommand: (command) => {
           store.dispatch(updateUnitCommand(command));
@@ -116,23 +155,6 @@ const render = (state) => {
       SelectedUnit.remove();
     }
 
-    Board({
-      state,
-      onClick: ({ row, col }) => {
-        if (state.startedState === "BATTLING") {
-          store.dispatch(selectUnit({ row, col }));
-          return;
-        } else {
-          store.dispatch(
-            addUnit({
-              teamID: "PLAYER",
-              command: "HOLD",
-              position: { row, col },
-            })
-          );
-        }
-      },
-    });
     return;
   }
 };
