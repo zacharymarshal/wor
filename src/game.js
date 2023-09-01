@@ -47,7 +47,7 @@ const initialState = {
   ],
   camera,
   startedAt: null,
-  timeLimit: 5 * 60 * 1000, // 5 minutes
+  timeLimit: 2 * 60 * 1000, // 5 minutes
   winningTeamID: null,
 };
 

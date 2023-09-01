@@ -6,10 +6,11 @@ function GameOverScreen({ state, onRestartGame }) {
     const el = document.createElement("div");
     el.id = "game-over-screen";
     el.innerHTML = `
-      <h1>wör</h1>
       <h2>Game Over</h2>
       <h3 id="winner"></h3>
-      <button id="restart-button">Play Again</button>
+      <p>
+        <button id="restart-button">Play Again</button>
+      </p>
     `;
     const gameEl = document.querySelector("#game");
     gameEl.appendChild(el);

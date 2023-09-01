@@ -210,10 +210,24 @@ export const startedHandler = (state, action) => {
             .every((u) => u.unitState === "DEAD")
       );
       if (teamsAlive.length === 1 || timerExpired) {
+        let winningTeamID = teamsAlive[0].teamID;
+        if (teamsAlive.length > 1) {
+          // find the team with the most units alive
+          const teamUnitCounts = teamsAlive.map((t) => ({
+            teamID: t.teamID,
+            count: state.units.filter(
+              (u) => u.teamID === t.teamID && u.unitState !== "DEAD"
+            ).length,
+          }));
+          const maxUnits = Math.max(...teamUnitCounts.map((t) => t.count));
+          const winningTeam = teamUnitCounts.find((t) => t.count === maxUnits);
+          winningTeamID = winningTeam.teamID;
+        }
+
         return {
           ...state,
           gameState: "GAME_OVER",
-          winningTeamID: teamsAlive[0].teamID,
+          winningTeamID,
         };
       }
     }

@@ -5,6 +5,7 @@ function TitleScreen({ startGame }) {
     gameEl.innerHTML = `
       <div id="title-screen">
         <h1>wör</h1>
+        <p></p>
         <button id="start-button">Start</button>
       </div>
     `;
