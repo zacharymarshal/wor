@@ -9,6 +9,8 @@ function findTeam(teams, teamID) {
   return team;
 }
 
+let spriteSheet = null;
+
 function Board({ state, onClick, onUpdateCamera }) {
   const {
     level: { cellSize, rows, cols },
@@ -20,6 +22,7 @@ function Board({ state, onClick, onUpdateCamera }) {
   onClickFn = onClick;
   onUpdateCameraFn = onUpdateCamera;
   if (!isInitialized) {
+    spriteSheet = document.querySelector("#sprite-sheet");
     const canvasWidth = cellSize * cols;
     const canvasHeight = cellSize * rows;
 
@@ -127,19 +130,76 @@ function Board({ state, onClick, onUpdateCamera }) {
   canvas.style.height = `${cellSize * rows}px`;
 
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const frames = {
+    BOX_SELECTOR_1: 0,
+    BOX_SELECTOR_2: 1,
+    DEAD: 2,
+    GRASS: 3,
+    TEXTURED_GRASS: 4,
+    HIGHLIGHTED_BOX_1: 6,
+    HIGHLIGHTED_BOX_2: 5,
+
+    PLAYER: {
+      IDLE: 7,
+      MOVING_DOWN: 7,
+      MOVING_UP: 8,
+      MOVING_RIGHT: 9,
+      MOVING_LEFT: 10,
+      ATTACKING_DOWN: 11,
+      ATTACKING_UP: 12,
+      ATTACKING_RIGHT: 13,
+      ATTACKING_LEFT: 14,
+    },
+    CPU: {
+      IDLE: 15,
+      MOVING_DOWN: 15,
+      MOVING_UP: 16,
+      MOVING_RIGHT: 17,
+      MOVING_LEFT: 18,
+      ATTACKING_DOWN: 19,
+      ATTACKING_UP: 20,
+      ATTACKING_RIGHT: 21,
+      ATTACKING_LEFT: 22,
+    },
+  };
 
   // draw a grid with black border and white background
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
-      ctx.fillStyle = "#ffffff";
-      if (state.startedState === "PLACING_UNITS") {
-        ctx.fillStyle = row >= rows / 2 ? "#ffffff" : "#8d8d8d";
+      // pick random grass frame
+      const grassFrame = [frames.GRASS, frames.TEXTURED_GRASS][
+        (row % 2 ? 1 : 0) ^ (col % 2 ? 1 : 0)
+      ];
+
+      ctx.drawImage(
+        spriteSheet,
+        grassFrame * 16,
+        0,
+        16,
+        16,
+        col * cellSize,
+        row * cellSize,
+        cellSize,
+        cellSize
+      );
+
+      if (state.startedState === "PLACING_UNITS" && row < rows / 2) {
+        ctx.drawImage(
+          spriteSheet,
+          frames.HIGHLIGHTED_BOX_2 * 16,
+          0,
+          16,
+          16,
+          col * cellSize,
+          row * cellSize,
+          cellSize,
+          cellSize
+        );
       }
-      ctx.strokeStyle = "black";
-      ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
-      ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
     }
   }
 
@@ -149,36 +209,64 @@ function Board({ state, onClick, onUpdateCamera }) {
 
   units.forEach((u) => {
     const { row, col } = u.position;
-    if (u.unitState === "DEAD") {
-      ctx.fillStyle = "#8d8d8d";
-    } else {
-      ctx.fillStyle = findTeam(teams, u.teamID).color;
-    }
-    ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
 
-    if (
-      selectedUnitID &&
-      (selectedUnitID === u.unitID || withinRange(selectedUnit, u))
-    ) {
-      ctx.strokeStyle = "#fbe32d";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+    const frame = frames[u.teamID][u.unitState];
+
+    ctx.drawImage(
+      spriteSheet,
+      frame * 16,
+      0,
+      16,
+      16,
+      col * cellSize,
+      row * cellSize,
+      cellSize,
+      cellSize
+    );
+
+    if (selectedUnitID && selectedUnitID === u.unitID) {
+      ctx.drawImage(
+        spriteSheet,
+        frames.BOX_SELECTOR_1 * 16,
+        0,
+        16,
+        16,
+        col * cellSize,
+        row * cellSize,
+        cellSize,
+        cellSize
+      );
+    }
+    if (selectedUnitID && withinRange(selectedUnit, u)) {
+      ctx.drawImage(
+        spriteSheet,
+        frames.HIGHLIGHTED_BOX_1 * 16,
+        0,
+        16,
+        16,
+        col * cellSize,
+        row * cellSize,
+        cellSize,
+        cellSize
+      );
     }
   });
 
+  // draw health bars
   units.forEach((u) => {
-    const { row, col } = u.position;
-    // draw a 2px health bar above the unit with a 1px black border and green fill
-    ctx.strokeStyle = "black";
-    ctx.strokeRect(col * cellSize + 2, row * cellSize + 2, cellSize - 5, 2);
+    if (u.unitState === "DEAD" || u.hp === 100) {
+      return;
+    }
 
-    ctx.fillStyle = "#46a758";
-    ctx.fillRect(
-      col * cellSize + 2,
-      row * cellSize + 2,
-      (u.hp / 100) * (cellSize - 5),
-      2
-    );
+    ctx.fillStyle = findTeam(teams, u.teamID).color;
+    const width = (u.hp / 100) * cellSize;
+    const maxWidth = cellSize - 4;
+    const height = 4;
+    const x = u.position.col * cellSize + 2;
+    const y = u.position.row * cellSize - 5;
+    ctx.fillRect(x, y, Math.min(width, maxWidth), height);
+    ctx.strokeStyle = "#000000";
+    ctx.strokeRect(x + 0.5, y + 0.5, maxWidth, height);
   });
 }
 

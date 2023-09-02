@@ -13,11 +13,11 @@ function battle(enemiesWithinRange, unit) {
   let unitState = unit.unitState;
   let enemyTarget = unit.enemyTarget;
 
-  const enemyTargetIsAlive =
-    enemiesWithinRange.find((u) => u.unitID === enemyTarget?.unitID)
-      ?.unitState !== "DEAD";
+  const enemyTargetIsAlive = enemiesWithinRange.find(
+    (u) => u.unitID === enemyTarget.unitID
+  );
 
-  if (!enemyTarget || !enemyTargetIsAlive) {
+  if (!enemyTargetIsAlive) {
     const newEnemyTarget = enemiesWithinRange[0];
     const direction = getDirection(unit.position, newEnemyTarget.position);
     unitState = `ATTACKING_${direction}`;
