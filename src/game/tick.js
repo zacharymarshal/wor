@@ -145,9 +145,14 @@ function tick(state) {
         return target(enemiesWithinRange, unit);
       }
     } else {
+      let unitState = "IDLE";
+      if (unit.command.startsWith("ATTACK")) {
+        const direction = unit.command.split("_")[1];
+        unitState = `IDLE_${direction}`;
+      }
       return {
         ...unit,
-        unitState: "IDLE",
+        unitState,
         enemyTarget: null,
         lastBattle: null,
       };
@@ -162,7 +167,10 @@ function tick(state) {
     .forEach((unit) => {
       let nextPosition = null;
       const willMove = () => {
-        if (unit.unitState === "IDLE" && unit.command.startsWith("ATTACK")) {
+        if (
+          unit.unitState.startsWith("IDLE") &&
+          unit.command.startsWith("ATTACK")
+        ) {
           // predict movement
           const direction = unit.command.split("_")[1];
           nextPosition = getNextPosition({
