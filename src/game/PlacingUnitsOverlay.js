@@ -9,7 +9,7 @@ function PlacingUnitsOverlay({ maxUnits, unitsPlaced, onDone }) {
     overlayEl.classList.add("command-bar");
     overlayEl.innerHTML = `
       <h3>Place your units<div id="placing-units-overlay-status"></div></h3>
-      <button id="done-button">battle</button>
+      <button id="done-button" class="btn">battle</button>
     `;
     const doneBtn = overlayEl.querySelector("#done-button");
     doneBtn.addEventListener("click", () => {

@@ -6,7 +6,7 @@ function TitleScreen({ startGame }) {
       <div id="title-screen">
         <h1>wör</h1>
         <p></p>
-        <button id="start-button">Start</button>
+        <button id="start-button" class="btn">Start</button>
       </div>
     `;
     const startBtn = document.querySelector("#start-button");

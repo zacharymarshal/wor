@@ -9,7 +9,7 @@ function GameOverScreen({ state, onRestartGame }) {
       <h2>Game Over</h2>
       <h3 id="winner"></h3>
       <p>
-        <button id="restart-button">Play Again</button>
+        <button id="restart-button" class="btn">Play Again</button>
       </p>
     `;
     const gameEl = document.querySelector("#game");
