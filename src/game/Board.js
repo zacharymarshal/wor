@@ -249,7 +249,7 @@ function Board({ state, onClick, onUpdateCamera }) {
     if (selectedUnitID && withinRange(selectedUnit, u)) {
       ctx.drawImage(
         spriteSheet,
-        frames.HIGHLIGHTED_BOX_1 * 16,
+        frames.BOX_SELECTOR_1 * 16,
         0,
         16,
         16,
