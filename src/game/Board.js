@@ -219,7 +219,13 @@ function Board({ state, onClick, onUpdateCamera }) {
   units.forEach((u) => {
     const { row, col } = u.position;
 
-    const frame = frames[u.teamID][u.unitState];
+    const unitFrame = u.frame;
+    let unitState = u.unitState;
+    if (unitFrame === 1) {
+      unitState = unitState.replace("ATTACKING", "IDLE");
+    }
+
+    const frame = frames[u.teamID][unitState];
 
     ctx.drawImage(
       spriteSheet,

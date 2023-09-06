@@ -9,6 +9,8 @@ export default class GameLoop {
   #frameTimer;
   #frameTimerLimit;
 
+  #gameTime = 0;
+
   constructor(onUpdate, fps = 60) {
     this.#onUpdate = onUpdate;
     this.#frameTimerLimit = Math.floor(1000 / fps);
@@ -31,12 +33,14 @@ export default class GameLoop {
     }
 
     const delta = Math.floor(ts - this.#lastTs);
-    this.#lastTs = ts;
+    this.#gameTime += delta;
+
     if (this.#frameTimer <= this.#frameTimerLimit) {
       this.#frameTimer += delta;
     } else {
       this.#frameTimer = this.#frameTimerLimit;
-      this.#onUpdate(delta, ++this.#frame);
+      this.#onUpdate({ timeElapsed: delta, gameTime: this.#gameTime });
+      this.#lastTs = ts;
     }
 
     this.#rafID = requestAnimationFrame(this.#update.bind(this));

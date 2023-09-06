@@ -61,27 +61,19 @@ const store = makeStore(initialState, (state, action, payload) => {
   return reducers[state.gameState](state, action, payload) || state;
 });
 
-const gameLoop = new GameLoop((delta, frame) => {
-  store.dispatch({ type: "TICK_PROGRESS", payload: { frame } });
+let gcd = 0;
+const gameLoop = new GameLoop(({ timeElapsed, gameTime }) => {
+  gcd += timeElapsed;
+  if (gcd >= 1000) {
+    store.dispatch({ type: "TICK" });
+    gcd = 0;
+  }
+  store.dispatch({ type: "TICK_PROGRESS", payload: { gameTime } });
 });
-
-let gameInterval;
-const start = () => {
-  store.dispatch({ type: "TICK_START" });
-  gameInterval = setInterval(() => {
-    store.dispatch({ type: "TICK_END" });
-    frameCounter = 0;
-    store.dispatch({ type: "TICK_START" });
-  }, 1000);
-};
-const stop = () => {
-  clearInterval(gameInterval);
-};
 
 const render = (state) => {
   if (state.gameState === "GAME_OVER") {
     gameLoop.stop();
-    stop();
 
     GameOverScreen({
       state,
@@ -98,7 +90,6 @@ const render = (state) => {
       startGame: () => {
         store.dispatch(startGame());
         gameLoop.start();
-        start();
       },
     });
   } else {

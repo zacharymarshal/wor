@@ -174,6 +174,7 @@ export const startedHandler = (state, action) => {
       cpuUnits.push({
         teamID: "CPU",
         unitID,
+        frame: 0,
         position,
         command: "ATTACK_DOWN",
         unitState: "IDLE",
@@ -191,15 +192,61 @@ export const startedHandler = (state, action) => {
       startedAt: Date.now(),
       units: [...state.units, ...cpuUnits],
     };
-  } else if (action.type === "TICK_START") {
-    console.log("tick start");
-    return state;
   } else if (action.type === "TICK_PROGRESS") {
-    const { frame } = action.payload;
-    // console.log(`tick progress ${frame}`);
-    return state;
-  } else if (action.type === "TICK_END") {
-    console.log("tick end");
+    const { gameTime } = action.payload;
+    // update units frame after a certain amount of time
+    const units = state.units.map((u) => {
+      if (u.unitState === "DEAD") {
+        return u;
+      }
+
+      if (u.unitState.startsWith("ATTACKING")) {
+        let t = 0;
+        const frames = [{ duration: 200 }, { duration: 300 }].map((f) => ({
+          ...f,
+          start: f.duration,
+          end: (t += f.duration),
+        }));
+        const totalDuration = frames.reduce((acc, f) => acc + f.duration, 0);
+
+        let frame = frames.findIndex((f) => {
+          return gameTime % totalDuration <= f.end;
+        });
+
+        return {
+          ...u,
+          frame,
+        };
+      }
+
+      if (u.unitState.startsWith("MOVING")) {
+        let t = 0;
+        const frames = [{ duration: 200 }, { duration: 300 }].map((f) => ({
+          ...f,
+          start: f.duration,
+          end: (t += f.duration),
+        }));
+        const totalDuration = frames.reduce((acc, f) => acc + f.duration, 0);
+
+        let frame = frames.findIndex((f) => {
+          return gameTime % totalDuration <= f.end;
+        });
+
+        return {
+          ...u,
+          frame,
+        };
+      }
+
+      return u;
+    });
+
+    return {
+      ...state,
+      units,
+    };
+  } else if (action.type === "TICK") {
+    console.log("tick");
     if (state.startedState === "BATTLING") {
       const now = Date.now();
       const timerExpired = now - state.startedAt > state.timeLimit;
@@ -243,6 +290,7 @@ export const startedHandler = (state, action) => {
     const unit = {
       teamID,
       unitID,
+      frame: 0,
       position,
       hp: 100,
       dmg: 10,
